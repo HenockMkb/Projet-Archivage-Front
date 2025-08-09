@@ -1,0 +1,188 @@
+# Configuration Apache pour e-Archive SGITP
+# Fichier .htaccess - Redirection des erreurs et optimisations
+
+# ========================================
+# GESTION DES ERREURS
+# ========================================
+
+# Redirection vers nos pages d'erreur personnalisées
+ErrorDocument 404 /404.php
+ErrorDocument 500 /500.php
+ErrorDocument 403 /404.php
+
+# ========================================
+# REDIRECTIONS URL
+# ========================================
+
+# Rediriger automatiquement les anciennes URLs .html vers .php
+RedirectMatch 301 ^(.*)\.html$ $1.php
+
+# Redirection de la racine vers index.php si pas de fichier spécifié
+DirectoryIndex index.php index.html
+
+# ========================================
+# SUPPRESSION EXTENSION .PHP
+# ========================================
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    
+    # Rediriger index.php vers la racine
+    RewriteCond %{THE_REQUEST} \s/+index\.php[\s?] [NC]
+    RewriteRule ^index\.php$ / [R=301,L]
+    
+    # Rediriger toutes les URLs avec .php vers leur version sans extension
+    RewriteCond %{THE_REQUEST} \s/+(.+)\.php[\s?] [NC]
+    RewriteRule ^(.+)\.php$ /$1 [R=301,L]
+    
+    # Réécrire les URLs sans extension vers les fichiers .php
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME}.php -f
+    RewriteRule ^(.*)$ $1.php [L]
+    
+    # Gérer le cas spécial de la racine
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^$ index.php [L]
+</IfModule>
+
+# ========================================
+# SÉCURITÉ
+# ========================================
+
+# Empêcher l'accès aux fichiers sensibles
+<Files ~ "^\.">
+    Order allow,deny
+    Deny from all
+</Files>
+
+# Protéger les fichiers de configuration
+<FilesMatch "\.(htaccess|htpasswd|ini|log|sh|inc|conf)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# Empêcher l'affichage du contenu des répertoires
+Options -Indexes
+
+# Protéger le répertoire datas/
+<IfModule mod_rewrite.c>
+    RewriteRule ^datas/ - [F,L]
+</IfModule>
+
+# ========================================
+# OPTIMISATIONS PERFORMANCE
+# ========================================
+
+# Compression GZIP
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/plain
+    AddOutputFilterByType DEFLATE text/html
+    AddOutputFilterByType DEFLATE text/xml
+    AddOutputFilterByType DEFLATE text/css
+    AddOutputFilterByType DEFLATE application/xml
+    AddOutputFilterByType DEFLATE application/xhtml+xml
+    AddOutputFilterByType DEFLATE application/rss+xml
+    AddOutputFilterByType DEFLATE application/javascript
+    AddOutputFilterByType DEFLATE application/x-javascript
+</IfModule>
+
+# Cache des fichiers statiques
+<IfModule mod_expires.c>
+    ExpiresActive On
+    
+    # Images
+    ExpiresByType image/jpg "access plus 1 month"
+    ExpiresByType image/jpeg "access plus 1 month"
+    ExpiresByType image/gif "access plus 1 month"
+    ExpiresByType image/png "access plus 1 month"
+    ExpiresByType image/svg+xml "access plus 1 month"
+    
+    # CSS et JS
+    ExpiresByType text/css "access plus 1 month"
+    ExpiresByType application/pdf "access plus 1 month"
+    ExpiresByType application/javascript "access plus 1 month"
+    ExpiresByType application/x-javascript "access plus 1 month"
+    
+    # Fonts
+    ExpiresByType application/x-font-woff "access plus 1 year"
+    ExpiresByType application/font-woff2 "access plus 1 year"
+</IfModule>
+
+# ========================================
+# CONFIGURATION PHP (si mod_php est activé)
+# ========================================
+
+<IfModule mod_php.c>
+    # Augmenter les limites pour l'upload de fichiers
+    php_value upload_max_filesize 50M
+    php_value post_max_size 50M
+    php_value max_execution_time 300
+    php_value max_input_time 300
+    php_value memory_limit 256M
+    
+    # Configuration des sessions
+    php_value session.cookie_httponly 1
+    php_value session.cookie_secure 1
+    php_value session.use_strict_mode 1
+    
+    # Sécurité PHP
+    php_flag expose_php off
+    php_flag display_errors off
+    php_flag log_errors on
+</IfModule>
+
+# ========================================
+# HEADERS DE SÉCURITÉ
+# ========================================
+
+<IfModule mod_headers.c>
+    # Sécurité XSS
+    Header always set X-Content-Type-Options nosniff
+    Header always set X-Frame-Options DENY
+    Header always set X-XSS-Protection "1; mode=block"
+    
+    # Politique de sécurité du contenu (CSP) basique - MISE À JOUR pour les icônes
+    Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' cdn.tailwindcss.com cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' fonts.googleapis.com cdnjs.cloudflare.com; font-src 'self' fonts.gstatic.com cdnjs.cloudflare.com; img-src 'self' data:;"
+    
+    # Cache control pour les fichiers PHP
+    <FilesMatch "\.(php)$">
+        Header set Cache-Control "no-cache, no-store, must-revalidate"
+        Header set Pragma "no-cache"
+        Header set Expires 0
+    </FilesMatch>
+</IfModule>
+
+# ========================================
+# REDIRECTIONS SPÉCIALES
+# ========================================
+
+<IfModule mod_rewrite.c>
+    # Forcer HTTPS (décommenter si vous avez SSL)
+    # RewriteCond %{HTTPS} off
+    # RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+    
+    # Rediriger les anciennes URLs d'administration
+    RewriteRule ^admin$ admin/ [R=301,L]
+    RewriteRule ^administration$ admin/ [R=301,L]
+    
+    # URLs conviviales pour les documents (optionnel)
+    # RewriteRule ^document/([0-9]+)/?$ document.php?id=$1 [L,QSA]
+    # RewriteRule ^collection/([0-9]+)/?$ collection.php?id=$1 [L,QSA]
+    
+    # Redirection si tentative d'accès direct aux includes
+    RewriteRule ^includes/ - [F,L]
+</IfModule>
+
+# ========================================
+# TYPES MIME PERSONNALISÉS
+# ========================================
+
+# Support des polices web
+AddType application/font-woff2 .woff2
+AddType application/font-woff .woff
+
+# Types de fichiers d'archive spécifiques
+AddType application/dwg .dwg
+AddType application/dxf .dxf 
